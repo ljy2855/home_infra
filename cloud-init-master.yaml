@@ -2,21 +2,32 @@
 package_update: true
 package_upgrade: true
 packages:
-  - docker.io
   - apt-transport-https
   - ca-certificates
   - curl
   - software-properties-common
+  - containerd
 runcmd:
-  - systemctl enable docker
-  - systemctl start docker
-  - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-  - echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
-  - apt-get update
-  - apt-get install -y kubelet kubeadm kubectl
-  - kubeadm init --pod-network-cidr=10.244.0.0/16
-  - mkdir -p /home/ubuntu/.kube
-  - cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
-  - chown ubuntu:ubuntu /home/ubuntu/.kube/config
-  - kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
-  - echo "kubeadm join command: $(kubeadm token create --print-join-command)" > /home/ubuntu/join.txt 
+  - sudo mkdir -p /etc/containerd
+  - sudo containerd config default > /etc/containerd/config.toml
+  - sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+  - sudo systemctl restart containerd
+  - sudo systemctl enable containerd
+  # Kubernetes 저장소 등록 (gpg --dearmor 방식, kubernetes-xenial)
+  - sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  - sudo sh -c 'echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list'
+  - sudo apt-get update
+  - sudo apt-get install -y kubelet kubeadm kubectl
+  - sudo systemctl enable kubelet
+  - sudo systemctl start kubelet
+  # IP 포워딩
+  - sudo sysctl -w net.ipv4.ip_forward=1
+  - sudo sh -c 'echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf'
+  # 마스터 노드 초기화
+  - sudo kubeadm init --pod-network-cidr=10.244.0.0/16 --cri-socket unix:///run/containerd/containerd.sock
+  - sudo mkdir -p /home/ubuntu/.kube
+  - sudo cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+  - sudo chown ubuntu:ubuntu /home/ubuntu/.kube/config
+  # 네트워크 플러그인 설치 (calico)
+  - sudo -u ubuntu kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+  - sudo kubeadm token create --print-join-command | sudo tee /home/ubuntu/join.txt

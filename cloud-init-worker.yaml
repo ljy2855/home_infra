@@ -2,17 +2,34 @@
 package_update: true
 package_upgrade: true
 packages:
-  - docker.io
   - apt-transport-https
   - ca-certificates
   - curl
   - software-properties-common
+  - containerd
 runcmd:
-  - systemctl enable docker
-  - systemctl start docker
-  - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-  - echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
-  - apt-get update
-  - apt-get install -y kubelet kubeadm kubectl
-  # 아래 줄은 실제 마스터에서 생성된 join 명령어로 바꿔야 합니다.
-  - echo "<여기에 마스터에서 생성된 kubeadm join 명령어를 입력하세요>" 
+  # IP 포워딩 활성화
+  - sudo sysctl -w net.ipv4.ip_forward=1
+  - sudo sh -c 'echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf'
+  # containerd 설정 및 시작
+  - sudo mkdir -p /etc/containerd
+  - sudo containerd config default > /etc/containerd/config.toml
+  - sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+  - sudo systemctl restart containerd
+  - sudo systemctl enable containerd
+  # Kubernetes 저장소 등록 (최신, v1.33 예시)
+  - sudo mkdir -p /etc/apt/keyrings
+  - sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  - sudo sh -c 'echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /" > /etc/apt/sources.list.d/kubernetes.list'
+  - sudo apt-get update
+  - sudo apt-get install -y kubelet kubeadm kubectl
+  - sudo systemctl enable kubelet
+  - sudo systemctl start kubelet
+  # master join.txt polling 및 join 실행
+  - |
+    for i in {1..60}; do
+      scp -o StrictHostKeyChecking=no -i /home/ubuntu/.ssh/id_rsa ubuntu@k8s-master:/home/ubuntu/join.txt /home/ubuntu/join.txt && break
+      echo "Waiting for join.txt from master... ($i/60)"
+      sleep 10
+    done
+    sudo bash /home/ubuntu/join.txt 

@@ -33,41 +33,75 @@ resource "openstack_networking_secgroup_rule_v2" "ssh" {
   security_group_id = openstack_networking_secgroup_v2.k8s_secgroup.id
 }
 
-resource "openstack_networking_port_v2" "k8s_port" {
-  count = var.node_count
-  name  = "k8s-port-${count.index}"
+# master port
+resource "openstack_networking_port_v2" "k8s_master_port" {
+  name        = "k8s-master-port"
+  network_id  = openstack_networking_network_v2.k8s_net.id
+  security_group_ids = [openstack_networking_secgroup_v2.k8s_secgroup.id]
+}
+
+# worker ports
+resource "openstack_networking_port_v2" "k8s_worker_port" {
+  count = var.node_count - 1
+  name  = "k8s-worker-port-${count.index}"
   network_id = openstack_networking_network_v2.k8s_net.id
   security_group_ids = [openstack_networking_secgroup_v2.k8s_secgroup.id]
 }
 
-resource "openstack_compute_instance_v2" "k8s_node" {
-  count       = var.node_count
-  name        = "k8s-node-${count.index}"
+# master instance
+resource "openstack_compute_instance_v2" "k8s_master" {
+  name        = "k8s-master"
   image_name  = var.image_name
   flavor_name = var.flavor_name
   key_pair    = var.keypair
   security_groups = [openstack_networking_secgroup_v2.k8s_secgroup.name]
-
   network {
-    port = openstack_networking_port_v2.k8s_port[count.index].id
+    port = openstack_networking_port_v2.k8s_master_port.id
   }
-
   metadata = {
-    role = count.index == 0 ? "master" : "worker"
+    role = "master"
   }
-
-  user_data = file(count.index == 0 ? "cloud-init-master.yaml" : "cloud-init-worker.yaml")
+  user_data = file("cloud-init-master.yaml")
 }
 
-resource "openstack_networking_floatingip_v2" "k8s_fip" {
-  count = var.node_count
+# worker instances
+resource "openstack_compute_instance_v2" "k8s_worker" {
+  count       = var.node_count - 1
+  name        = "k8s-worker-${count.index}"
+  image_name  = var.image_name
+  flavor_name = var.flavor_name
+  key_pair    = var.keypair
+  security_groups = [openstack_networking_secgroup_v2.k8s_secgroup.name]
+  network {
+    port = openstack_networking_port_v2.k8s_worker_port[count.index].id
+  }
+  metadata = {
+    role = "worker"
+  }
+  user_data = file("cloud-init-worker.yaml")
+  depends_on = [openstack_compute_instance_v2.k8s_master]
+}
+
+# master floating ip
+resource "openstack_networking_floatingip_v2" "k8s_master_fip" {
+  pool = "public"
+}
+
+resource "openstack_networking_floatingip_associate_v2" "k8s_master_fip_assoc" {
+  floating_ip = openstack_networking_floatingip_v2.k8s_master_fip.address
+  port_id     = openstack_networking_port_v2.k8s_master_port.id
+}
+
+# worker floating ips
+resource "openstack_networking_floatingip_v2" "k8s_worker_fip" {
+  count = var.node_count - 1
   pool  = "public"
 }
 
-resource "openstack_networking_floatingip_associate_v2" "k8s_fip_assoc" {
-  count       = var.node_count
-  floating_ip = openstack_networking_floatingip_v2.k8s_fip[count.index].address
-  port_id     = openstack_networking_port_v2.k8s_port[count.index].id
+resource "openstack_networking_floatingip_associate_v2" "k8s_worker_fip_assoc" {
+  count       = var.node_count - 1
+  floating_ip = openstack_networking_floatingip_v2.k8s_worker_fip[count.index].address
+  port_id     = openstack_networking_port_v2.k8s_worker_port[count.index].id
 }
 
 data "openstack_networking_network_v2" "public" {
@@ -84,6 +118,3 @@ resource "openstack_networking_router_interface_v2" "k8s_router_interface" {
   subnet_id = openstack_networking_subnet_v2.k8s_subnet.id
 }
 
-output "k8s_floating_ips" {
-  value = openstack_networking_floatingip_v2.k8s_fip[*].address
-}
