@@ -24,3 +24,7 @@ variable "node_count" {
   default = 3
 }
 variable "network_id" {}
+
+variable "pool" {
+  default = "public"
+}
