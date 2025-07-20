@@ -1,0 +1,18 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - software-properties-common
+runcmd:
+  - systemctl enable docker
+  - systemctl start docker
+  - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+  - echo "deb http://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
+  - apt-get update
+  - apt-get install -y kubelet kubeadm kubectl
+  # 아래 줄은 실제 마스터에서 생성된 join 명령어로 바꿔야 합니다.
+  - echo "<여기에 마스터에서 생성된 kubeadm join 명령어를 입력하세요>" 
