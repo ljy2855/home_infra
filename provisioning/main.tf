@@ -35,25 +35,33 @@ resource "openstack_networking_secgroup_rule_v2" "ssh" {
 
 # master port
 resource "openstack_networking_port_v2" "k8s_master_port" {
-  name        = "k8s-master-port"
-  network_id  = openstack_networking_network_v2.k8s_net.id
+  name               = "k8s-master-port"
+  network_id         = openstack_networking_network_v2.k8s_net.id
   security_group_ids = [openstack_networking_secgroup_v2.k8s_secgroup.id]
+
+  fixed_ip {
+    subnet_id = openstack_networking_subnet_v2.k8s_subnet.id
+  }
 }
 
 # worker ports
 resource "openstack_networking_port_v2" "k8s_worker_port" {
-  count = var.node_count - 1
-  name  = "k8s-worker-port-${count.index}"
-  network_id = openstack_networking_network_v2.k8s_net.id
+  count              = var.node_count - 1
+  name               = "k8s-worker-port-${count.index}"
+  network_id         = openstack_networking_network_v2.k8s_net.id
   security_group_ids = [openstack_networking_secgroup_v2.k8s_secgroup.id]
+
+  fixed_ip {
+    subnet_id = openstack_networking_subnet_v2.k8s_subnet.id
+  }
 }
 
 # master instance
 resource "openstack_compute_instance_v2" "k8s_master" {
-  name        = "k8s-master"
-  image_name  = var.image_name
-  flavor_name = var.flavor_name
-  key_pair    = var.keypair
+  name            = "k8s-master"
+  image_name      = var.image_name
+  flavor_name     = var.flavor_name
+  key_pair        = var.keypair
   security_groups = [openstack_networking_secgroup_v2.k8s_secgroup.name]
   network {
     port = openstack_networking_port_v2.k8s_master_port.id
@@ -66,11 +74,11 @@ resource "openstack_compute_instance_v2" "k8s_master" {
 
 # worker instances
 resource "openstack_compute_instance_v2" "k8s_worker" {
-  count       = var.node_count - 1
-  name        = "k8s-worker-${count.index}"
-  image_name  = var.image_name
-  flavor_name = var.flavor_name
-  key_pair    = var.keypair
+  count           = var.node_count - 1
+  name            = "k8s-worker-${count.index}"
+  image_name      = var.image_name
+  flavor_name     = var.flavor_name
+  key_pair        = var.keypair
   security_groups = [openstack_networking_secgroup_v2.k8s_secgroup.name]
   network {
     port = openstack_networking_port_v2.k8s_worker_port[count.index].id
@@ -78,7 +86,7 @@ resource "openstack_compute_instance_v2" "k8s_worker" {
   metadata = {
     role = "worker"
   }
-  user_data = file("cloud-init-worker.yaml")
+  user_data  = file("cloud-init-worker.yaml")
   depends_on = [openstack_compute_instance_v2.k8s_master]
 }
 
