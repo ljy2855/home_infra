@@ -1,0 +1,50 @@
+# redis.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: tools
+spec:
+  clusterIP: None
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+  selector: { app: redis }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: tools
+spec:
+  serviceName: redis
+  replicas: 1
+  selector: { matchLabels: { app: redis } }
+  template:
+    metadata: { labels: { app: redis } }
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        args: ["sh","-c","redis-server --requirepass \"$REDIS_PASSWORD\" --appendonly yes --maxmemory-policy allkeys-lru"]
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom: { secretKeyRef: { name: n8n-secrets, key: REDIS_PASSWORD } }
+        ports: [{ containerPort: 6379 }]
+        livenessProbe:
+          exec: { command: ["sh","-c","redis-cli -a \"$REDIS_PASSWORD\" PING | grep PONG"] }
+          initialDelaySeconds: 20
+          periodSeconds: 15
+        readinessProbe:
+          exec: { command: ["sh","-c","redis-cli -a \"$REDIS_PASSWORD\" PING | grep PONG"] }
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: redisdata
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata: { name: redisdata }
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources: { requests: { storage: 5Gi } }

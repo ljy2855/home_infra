@@ -1,0 +1,60 @@
+# n8n.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: n8n
+  namespace: tools
+spec:
+  ports:
+  - name: http
+    port: 5678
+    targetPort: 5678
+  selector: { app: n8n }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n
+  namespace: tools
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: n8n } }
+  template:
+    metadata: { labels: { app: n8n } }
+    spec:
+      containers:
+      - name: n8n
+        image: n8nio/n8n:latest
+        ports: [{ containerPort: 5678 }]
+        env:
+        - { name: N8N_HOST,              value: "n8n.cocopam.dev" }     # 바깥 주소
+        - { name: N8N_PROTOCOL,          value: "https" }
+        - { name: N8N_PORT,              value: "5678" }
+        - { name: WEBHOOK_URL,           value: "https://n8n.cocopam.dev/" }
+        - { name: N8N_EDITOR_BASE_URL,   value: "https://n8n.cocopam.dev/" }
+        - { name: N8N_SECURE_COOKIE,     value: "false" }               # 터널 뒤에서 내부 HTTP 사용
+        - { name: GENERIC_TIMEZONE,      value: "Asia/Seoul" }
+        - name: N8N_ENCRYPTION_KEY
+          valueFrom: { secretKeyRef: { name: n8n-secrets, key: N8N_ENCRYPTION_KEY } }
+        # DB
+        - { name: DB_TYPE,               value: "postgresdb" }
+        - { name: DB_POSTGRESDB_HOST,    value: "postgres.tools.svc.cluster.local" }
+        - { name: DB_POSTGRESDB_PORT,    value: "5432" }
+        - name: DB_POSTGRESDB_DATABASE
+          valueFrom: { secretKeyRef: { name: n8n-secrets, key: POSTGRES_DB } }
+        - name: DB_POSTGRESDB_USER
+          valueFrom: { secretKeyRef: { name: n8n-secrets, key: POSTGRES_USER } }
+        - name: DB_POSTGRESDB_PASSWORD
+          valueFrom: { secretKeyRef: { name: n8n-secrets, key: POSTGRES_PASSWORD } }
+        # Queue
+        - { name: N8N_QUEUE_MODE,        value: "redis" }
+        - { name: QUEUE_BULL_REDIS_HOST, value: "redis.tools.svc.cluster.local" }
+        - { name: QUEUE_BULL_REDIS_PORT, value: "6379" }
+        - name: QUEUE_BULL_REDIS_PASSWORD
+          valueFrom: { secretKeyRef: { name: n8n-secrets, key: REDIS_PASSWORD } }
+        - { name: QUEUE_BULL_REDIS_DB,   value: "0" }
+        readinessProbe: { httpGet: { path: /healthz, port: 5678 }, initialDelaySeconds: 10, periodSeconds: 10 }
+        livenessProbe:  { httpGet: { path: /healthz, port: 5678 }, initialDelaySeconds: 30, periodSeconds: 20 }
+        resources:
+          requests: { cpu: "250m", memory: "512Mi" }
+          limits:   { cpu: "1",    memory: "2Gi" }

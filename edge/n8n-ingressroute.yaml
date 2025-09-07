@@ -1,0 +1,15 @@
+# edge 네임스페이스에 배포
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: n8n
+  namespace: edge
+spec:
+  entryPoints: ["web"]                           # 터널 → Traefik(HTTP)
+  routes:
+  - match: Host(`n8n.cocopam.dev`)
+    kind: Rule
+    services:
+    - name: n8n
+      namespace: tools                           # ← 여기!
+      port: 5678

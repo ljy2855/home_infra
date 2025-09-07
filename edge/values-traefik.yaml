@@ -1,0 +1,68 @@
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+  name: traefik
+
+ports:
+  web:
+    port: 8000                  # ← 컨테이너 내부 포트(고포트)
+    expose:
+      default: true
+    exposedPort: 80             # ← Service가 외부로 노출하는 포트
+  websecure:
+    port: 8443                  # ← 컨테이너 내부 포트(고포트)
+    expose:
+      default: true
+    exposedPort: 443            # ← Service가 외부로 노출하는 포트
+    tls:
+      enabled: true
+
+service:
+  enabled: true
+  type: NodePort
+
+certificatesResolvers:
+  cfresolver:
+    acme:
+      email: ljy2855@gmail.com
+      storage: /data/acme.json
+      dnsChallenge:
+        provider: cloudflare
+        delayBeforeCheck: 5s
+        resolvers:
+          - "1.1.1.1:53"
+          - "8.8.8.8:53"
+
+env:
+  - name: CF_DNS_API_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: cloudflare-dns
+        key: CF_DNS_API_TOKEN
+
+persistence:
+  enabled: true
+  path: /data
+  size: 1Gi
+  accessMode: ReadWriteOnce
+
+api:
+  dashboard: true
+
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true
+
+podSecurityContext:
+  fsGroup: 65532
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+
+providers:
+  kubernetesCRD:
+    allowCrossNamespace: true     # ★ 다른 네임스페이스의 Service 참조 허용
+    ingressClass: traefik 
