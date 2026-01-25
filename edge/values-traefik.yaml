@@ -41,7 +41,7 @@ env:
         key: CF_DNS_API_TOKEN
 
 persistence:
-  enabled: true
+  enabled: false
   path: /data
   size: 1Gi
   accessMode: ReadWriteOnce

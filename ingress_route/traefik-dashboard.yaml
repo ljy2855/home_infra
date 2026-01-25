@@ -3,6 +3,8 @@ kind: IngressRoute
 metadata:
   name: traefik-dashboard
   namespace: edge
+  annotations:
+    kubernetes.io/ingress.class: traefik
 spec:
   entryPoints:
     - web

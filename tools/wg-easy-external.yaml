@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wg-easy-external
+  namespace: tools
+spec:
+  type: ClusterIP
+  ports:
+    - name: web
+      protocol: TCP
+      port: 51821       # 클러스터 내부 포트
+      targetPort: 51821 # 엔드포인트 실제 포트
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: wg-easy-external
+  namespace: tools
+subsets:
+  - addresses:
+      - ip: 192.168.0.21 
+    ports:
+      - name: web
+        port: 51821
+        protocol: TCP
