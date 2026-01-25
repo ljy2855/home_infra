@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nfs-provisioner
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nfs-subdir-external-provisioner
+  namespace: nfs-provisioner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nfs-subdir-external-provisioner-runner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get","list","watch","create","delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get","list","watch","update"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create","update","patch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get","list","watch"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get","list","watch","create","update","patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get","list","watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get","list","watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nfs-subdir-external-provisioner-runner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nfs-subdir-external-provisioner-runner
+subjects:
+  - kind: ServiceAccount
+    name: nfs-subdir-external-provisioner
+    namespace: nfs-provisioner
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nfs-subdir-external-provisioner-config
+  namespace: nfs-provisioner
+data:
+  nfs.server: "172.16.1.31"
+  nfs.path: "/data/nfs/k8s"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-subdir-external-provisioner
+  namespace: nfs-provisioner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-subdir-external-provisioner
+  template:
+    metadata:
+      labels:
+        app: nfs-subdir-external-provisioner
+    spec:
+      serviceAccountName: nfs-subdir-external-provisioner
+      containers:
+        - name: provisioner
+          image: registry.k8s.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2
+          env:
+            - name: PROVISIONER_NAME
+              value: "cocopam.dev/nfs-subdir-external-provisioner"
+            - name: NFS_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: nfs-subdir-external-provisioner-config
+                  key: nfs.server
+            - name: NFS_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: nfs-subdir-external-provisioner-config
+                  key: nfs.path
+          volumeMounts:
+            - name: nfs-volume
+              mountPath: /persistentvolumes
+      volumes:
+        - name: nfs-volume
+          nfs:
+            server: "172.16.1.31"
+            path: "/data/nfs/k8s"
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-client
+provisioner: cocopam.dev/nfs-subdir-external-provisioner
+parameters:
+  archiveOnDelete: "false"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
