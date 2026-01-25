@@ -49,5 +49,6 @@ spec:
   volumeClaimTemplates:
   - metadata: { name: pgdata }
     spec:
+      storageClassName: nfs-client
       accessModes: ["ReadWriteOnce"]
       resources: { requests: { storage: 20Gi } }
