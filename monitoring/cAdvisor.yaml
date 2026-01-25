@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cadvisor
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: cadvisor
+  template:
+    metadata:
+      labels:
+        app: cadvisor
+    spec:
+      # 중요: SA 토큰 마운트 막기 (예전 /var/run 충돌도 원천차단)
+      automountServiceAccountToken: false
+
+      containers:
+      - name: cadvisor
+        image: ghcr.io/google/cadvisor:0.54.0
+        args:
+          - --port=8080
+          - --containerd=/run/containerd/containerd.sock
+          - --containerd-namespace=k8s.io
+        ports:
+          - name: http
+            containerPort: 8080
+
+        # 중요: 호스트 정보 접근(권한 부족으로 Exit 255 나는 케이스 방지)
+        securityContext:
+          privileged: true
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: true
+
+        volumeMounts:
+          # 루트/시스템 정보
+          - name: rootfs
+            mountPath: /rootfs
+            readOnly: true
+          - name: sys
+            mountPath: /sys
+            readOnly: true
+          - name: cgroup
+            mountPath: /sys/fs/cgroup
+            readOnly: true
+
+          # containerd 정보/소켓
+          - name: containerd-sock
+            mountPath: /run/containerd/containerd.sock
+            readOnly: true
+          - name: var-lib-containerd
+            mountPath: /var/lib/containerd
+            readOnly: true
+
+          # 디스크 디바이스(옵션)
+          - name: dev-disk
+            mountPath: /dev/disk
+            readOnly: true
+
+      volumes:
+        - name: rootfs
+          hostPath:
+            path: /
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+
+        - name: containerd-sock
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+
+        - name: var-lib-containerd
+          hostPath:
+            path: /var/lib/containerd
+
+        - name: dev-disk
+          hostPath:
+            path: /dev/disk
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cadvisor-service
+  namespace: monitoring
+spec:
+  selector:
+    app: cadvisor
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

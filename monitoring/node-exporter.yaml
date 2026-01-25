@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      hostNetwork: true
+      hostPID: true
+      automountServiceAccountToken: false
+      containers:
+      - name: node-exporter
+        image: prom/node-exporter:v1.7.0
+        args:
+          - --path.rootfs=/host
+        ports:
+          - name: http
+            containerPort: 9100
+        volumeMounts:
+          - name: root
+            mountPath: /host
+            readOnly: true
+      volumes:
+        - name: root
+          hostPath:
+            path: /
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter
+  namespace: monitoring
+spec:
+  selector:
+    app: node-exporter
+  ports:
+    - name: http
+      port: 9100
+      targetPort: 9100
