@@ -9,7 +9,7 @@ spec:
   entryPoints:
     - web
   routes:
-  - match: Host(`traefik.cocopam.dev`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
+  - match: (Host(`traefik.home.internal`) || Host(`traefik.cocopam.dev`)) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
     kind: Rule
     services:
     - name: api@internal

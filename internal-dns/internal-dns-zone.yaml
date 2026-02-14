@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: internal-dns-zone
+  namespace: internal-dns
+data:
+  home.internal.db: |
+    $ORIGIN home.internal.
+    $TTL 60
+
+    @   IN SOA ns1.home.internal. admin.home.internal. (
+          2026021401 ; serial
+          7200       ; refresh
+          3600       ; retry
+          1209600    ; expire
+          60         ; minimum
+        )
+
+        IN NS  ns1.home.internal.
+    ns1 IN A   172.16.200.53
+
+    ; --- Records ---
+    traefik IN A 172.16.200.20
+    hubble  IN A 172.16.200.20
+    n8n     IN A 172.16.200.20
+    grafana IN A 172.16.200.20

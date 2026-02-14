@@ -1,16 +1,16 @@
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: n8n
+  name: grafana
   namespace: edge
   annotations:
     kubernetes.io/ingress.class: traefik
 spec:
   entryPoints: ["web"]
   routes:
-  - match: Host(`n8n.cocopam.dev`) || Host(`n8n.home.internal`)
+  - match: Host(`grafana.home.internal`)
     kind: Rule
     services:
-    - name: n8n
-      namespace: tools
-      port: 5678
+    - name: grafana-service
+      namespace: monitoring
+      port: 3000
