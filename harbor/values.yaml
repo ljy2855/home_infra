@@ -1,0 +1,49 @@
+expose:
+  type: clusterIP
+  tls:
+    enabled: false
+  clusterIP:
+    name: harbor
+    ports:
+      httpPort: 80
+
+externalURL: http://harbor.home.internal
+
+existingSecretAdminPassword: harbor-admin
+existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD
+
+persistence:
+  enabled: true
+  resourcePolicy: keep
+  persistentVolumeClaim:
+    registry:
+      storageClass: nfs-client
+      size: 20Gi
+    jobservice:
+      jobLog:
+        storageClass: nfs-client
+        size: 2Gi
+    database:
+      storageClass: nfs-client
+      size: 5Gi
+    redis:
+      storageClass: nfs-client
+      size: 2Gi
+    trivy:
+      storageClass: nfs-client
+      size: 5Gi
+
+portal:
+  replicas: 1
+
+core:
+  replicas: 1
+
+jobservice:
+  replicas: 1
+
+registry:
+  replicas: 1
+
+trivy:
+  enabled: true

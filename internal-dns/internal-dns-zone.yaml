@@ -9,7 +9,7 @@ data:
     $TTL 60
 
     @   IN SOA ns1.home.internal. admin.home.internal. (
-          2026021401 ; serial
+          2026032501 ; serial
           7200       ; refresh
           3600       ; retry
           1209600    ; expire
@@ -24,3 +24,4 @@ data:
     hubble  IN A 172.16.200.20
     n8n     IN A 172.16.200.20
     grafana IN A 172.16.200.20
+    harbor  IN A 172.16.200.20
